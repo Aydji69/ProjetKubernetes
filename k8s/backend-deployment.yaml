@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      initContainers:
+        - name: init-db-check
+          image: busybox ###
+          command: ['sh', '-c', 'until nc -z -v -w30 mysql-service 3306; do echo "Waiting for database..."; sleep 5; done;']
+      containers:
+        - name: backend
+          image: aydji69/exo_cloud:latest  
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: backend-configmap
+            - secretRef:
+                name: backend-secret
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "250m"
+            limits:
+              memory: "128Mi"
+              cpu: "500m"
